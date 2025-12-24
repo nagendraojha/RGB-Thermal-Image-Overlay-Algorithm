@@ -1,51 +1,44 @@
-# 🔥 RGB–Thermal Image Overlay & Alignment Algorithm
+🔥 RGB–Thermal Image Overlay & Alignment Algorithm
 
-## 📌 Project Overview
+## 📌 Overview
 
-This project implements a **robust RGB–Thermal image alignment and overlay pipeline** designed to accurately align thermal imagery with its corresponding RGB counterpart.
+This project presents a **robust RGB–Thermal image alignment system** designed to accurately align thermal images with their corresponding RGB images captured from **different cameras**.
 
-Since thermal and RGB images are captured using **different sensors and cameras**, they are **not naturally aligned**. A simple resize or overlay produces incorrect results.
-This project solves that problem using **feature-based geometric alignment**, ensuring that the **RGB image remains unchanged** while the **thermal image is precisely transformed** to match the RGB frame.
+Because RGB and thermal sensors have **different viewpoints, resolutions, and optics**, the images are **not aligned by default**. A naïve overlay leads to incorrect spatial correspondence.
 
-The solution is **fully automated**, **fault-tolerant**, and capable of processing **multiple image pairs in batch mode**, making it suitable for **real-world computer vision and inspection workflows**.
+This project solves that problem using a **feature-based geometric alignment pipeline** with a **safe fallback mechanism**, producing reliable and visually consistent results across a large batch of real-world drone images.
 
 ---
 
 ## 🎯 Task Objective
 
-* Align thermal images with their corresponding RGB images
-* Handle misalignment caused by different camera sensors
-* Process all image pairs automatically from an input directory
-* Generate aligned thermal outputs while keeping RGB images unchanged
-* Produce clean, reproducible outputs following a fixed folder structure
+* Align thermal images (`*_T.JPG`) with RGB images (`*_Z.JPG`)
+* Process all image pairs automatically from an input folder
+* Handle imperfect alignment caused by multi-sensor capture
+* Keep RGB images **unchanged**
+* Output an **aligned thermal image** for every valid pair
 
 ---
 
-## 🧠 Key Challenges Addressed
-
-* RGB and thermal cameras have **different viewpoints**
-* Images are **not pixel-aligned by default**
-* Feature detection on thermal images is difficult
-* Some image pairs lack reliable correspondences
-* Alignment must not distort or modify RGB images
-
-This project handles all these challenges gracefully.
-
----
-
-## 🗂️ Folder Structure
+## 🗂️ Project Directory Structure
 
 ```
 RGB-Thermal-Image-Overlay-Algorithm/
 │
 ├── RGB Thermal Overlay Algorithm Images/
 │   └── input-images/
-│       ├── XXXX_T.JPG   (Thermal image)
-│       ├── XXXX_Z.JPG   (RGB image)
+│       ├── DJI_20250530121540_0001_T.JPG
+│       ├── DJI_20250530121540_0001_Z.JPG
+│       ├── DJI_20250530121639_0003_T.JPG
+│       ├── DJI_20250530121639_0003_Z.JPG
+│       └── ... (multiple RGB–Thermal pairs)
 │
 ├── task1output/
-│   ├── XXXX_Z.JPG       (Original RGB image)
-│   ├── XXXX_AT.JPG      (Aligned thermal image)
+│   ├── DJI_20250530121540_0001_AT.JPG
+│   ├── DJI_20250530121540_0001_Z.JPG
+│   ├── DJI_20250530121912_0007_AT.JPG
+│   ├── DJI_20250530121912_0007_Z.JPG
+│   └── ... (aligned outputs)
 │
 ├── task1.py
 └── README.md
@@ -53,40 +46,60 @@ RGB-Thermal-Image-Overlay-Algorithm/
 
 ---
 
-## 🖼️ Sample Input (Thermal Image)
+## 🖼️ Sample Input Images
 
-Below is an example **thermal input image** used by the algorithm:
+Below are examples of **actual input images** used in this project.
+
+### 🔹 Thermal Image
+
+**File:** `DJI_20250530121540_0001_T.JPG`
 
 <p align="center">
-  <img src="RGB Thermal Overlay Algorithm Images/input-images/sample_thermal.JPG" width="500">
+  <img src="RGB Thermal Overlay Algorithm Images/input-images/DJI_20250530121540_0001_T.JPG" width="480">
 </p>
 
-*(Thermal image captured from a different sensor and viewpoint)*
+> Thermal image captured from a thermal sensor.
+> High-intensity regions indicate heat signatures.
 
 ---
 
-## 🖼️ Sample Output (Aligned Thermal Image)
+### 🔹 RGB Image
 
-After alignment, the thermal image is transformed to match the RGB frame:
+**File:** `DJI_20250530121540_0001_Z.JPG`
 
 <p align="center">
-  <img src="task1output/sample_AT.JPG" width="500">
+  <img src="RGB Thermal Overlay Algorithm Images/input-images/DJI_20250530121540_0001_Z.JPG" width="480">
 </p>
 
-✔ Thermal content is geometrically aligned
-✔ RGB frame remains unchanged
+> RGB image captured from a standard camera.
+> Spatially misaligned with the thermal image due to sensor differences.
+
+---
+
+## 🖼️ Sample Output Images
+
+### 🔹 Aligned Thermal Output
+
+**File:** `DJI_20250530121540_0001_AT.JPG`
+
+<p align="center">
+  <img src="task1output/DJI_20250530121540_0001_AT.JPG" width="480">
+</p>
+
+✔ Thermal image geometrically aligned to RGB space
 ✔ Aspect ratio preserved
-✔ No visual distortion
+✔ No distortion of RGB image
+✔ Suitable for overlay or analysis
 
 ---
 
 ## ⚙️ How the Algorithm Works
 
-### 1️⃣ Intelligent Image Pair Matching
+### 1️⃣ Intelligent Pair Matching
 
-* Parses filenames using a strict naming convention
-* Matches thermal (`_T.JPG`) and RGB (`_Z.JPG`) images using shared identifiers
-* Handles slight timestamp differences automatically
+* Parses DJI filenames
+* Matches thermal (`_T`) and RGB (`_Z`) images using shared index
+* Handles small timestamp differences automatically
 
 ---
 
@@ -95,32 +108,41 @@ After alignment, the thermal image is transformed to match the RGB frame:
 For each image pair:
 
 * Convert images to grayscale
-* Invert thermal image to improve feature detection
+* Invert thermal image to improve feature visibility
 * Extract features using **SIFT**
 * Match features using **FLANN**
 * Filter matches using **Lowe’s ratio test**
 * Estimate geometric transformation using **RANSAC homography**
-* Validate transformation stability
+* Validate homography stability before applying
 
-If successful → thermal image is **warped into RGB space**
+If successful, the thermal image is **warped into RGB coordinate space**.
 
 ---
 
 ### 3️⃣ Robust Fallback Strategy
 
-If feature matching fails due to:
+In cases where:
 
-* Insufficient keypoints
-* Noisy thermal data
-* Unstable homography
+* Feature matches are insufficient
+* Thermal data is noisy
+* Homography is unstable
 
-Then:
+The algorithm automatically:
 
-* Thermal image is **scaled proportionally**
-* Centered on the RGB canvas
-* Aspect ratio preserved
+* Scales the thermal image proportionally
+* Centers it within the RGB frame
+* Preserves aspect ratio
 
-This guarantees **100% pipeline reliability**.
+This ensures **no pair fails**, making the pipeline reliable for large datasets.
+
+---
+
+## 📊 Dataset Scale (Current Run)
+
+* ✔ **20+ RGB–Thermal image pairs processed**
+* ✔ Multiple timestamps and indices
+* ✔ Real drone-captured imagery
+* ✔ Stable output for all valid pairs
 
 ---
 
@@ -132,52 +154,48 @@ This guarantees **100% pipeline reliability**.
 * **SIFT (Scale-Invariant Feature Transform)**
 * **FLANN Matcher**
 * **RANSAC Homography**
-* **PyTorch / TorchVision** (architecture-ready for deep extensions)
+* **PyTorch / TorchVision** (architecture-ready for deep alignment)
 
 ---
 
-## ✅ Why This Project Stands Out
+## ✅ Why This Project Is Strong
 
-✔ Solves a **real sensor-alignment problem**
-✔ Uses **industry-standard vision techniques**
+✔ Solves a **real-world multi-sensor alignment problem**
+✔ Uses industry-standard computer vision techniques
 ✔ Fully automated batch processing
-✔ Robust to edge cases and failures
+✔ Handles edge cases gracefully
 ✔ Clean, modular, production-ready code
-✔ Easily extensible to deep learning alignment
+✔ Easily extensible to deep learning approaches
 
 ---
 
-## 🚀 Potential Applications
+## 🚀 Applications
 
-* Drone-based thermal inspection
-* Power line and infrastructure monitoring
-* Surveillance and security systems
-* Industrial fault detection
-* Smart agriculture and environmental analysis
-* Research in multi-modal computer vision
+* Drone-based power line inspection
+* Thermal fault detection
+* Infrastructure monitoring
+* Surveillance & security
+* Smart agriculture
+* Multi-modal computer vision research
 
 ---
 
 ## 🧩 Future Enhancements
 
-* Alpha-blended RGB–Thermal visualization
+* Alpha-blended RGB–Thermal overlays
 * Deep feature alignment using CNN embeddings
-* Automatic alignment quality scoring
+* Alignment quality scoring
 * Real-time video stream support
-* Integration with GIS / drone pipelines
+* GIS and drone pipeline integration
 
 ---
 
-## 🏁 Final Notes
-
-This project goes **far beyond basic image overlay** and demonstrates a **strong understanding of computer vision, geometry, and real-world sensor limitations**.
-
-It is designed to be **readable, reproducible, and ready for real deployment**.
-
----
-
-### 👤 Author
+## 👤 Author
 
 **Nagendra Kumar Ojha**
+Machine Learning | Computer Vision | AI Engineer
 
+---
+
+### ⭐ If you find this project useful, consider starring the repository!
 
